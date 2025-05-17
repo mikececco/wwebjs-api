@@ -1,5 +1,5 @@
 const { OpenAI } = require('openai');
-const { openaiApiKey } = require('../../config'); // Adjust path to config
+const { openaiApiKey } = require('../config.js'); // Corrected path
 
 let openai;
 if (openaiApiKey) {
