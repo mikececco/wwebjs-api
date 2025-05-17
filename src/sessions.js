@@ -6,7 +6,7 @@ const { baseWebhookURL, sessionFolderPath, maxAttachmentSize, setMessagesAsSeen,
 const { triggerWebhook, waitForNestedObject, checkIfEventisEnabled, sendMessageSeenStatus } = require('./utils')
 const { logger } = require('./logger')
 const { initWebSocketServer, terminateWebSocketServer, triggerWebSocket } = require('./websocket')
-const { getAIResponse } = require('../aiAgent/agent')
+const { getAIResponse } = require('./aiAgent/agent')
 
 // Function to validate if the session is ready
 const validateSession = async (sessionId) => {
