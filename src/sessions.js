@@ -2,10 +2,11 @@ const { Client, LocalAuth } = require('whatsapp-web.js')
 const fs = require('fs')
 const path = require('path')
 const sessions = new Map()
-const { baseWebhookURL, sessionFolderPath, maxAttachmentSize, setMessagesAsSeen, webVersion, webVersionCacheType, recoverSessions, chromeBin, headless, releaseBrowserLock, enableAutoReply, autoReplyMessage } = require('./config')
+const { baseWebhookURL, sessionFolderPath, maxAttachmentSize, setMessagesAsSeen, webVersion, webVersionCacheType, recoverSessions, chromeBin, headless, releaseBrowserLock, enableAutoReply, autoReplyMessage, enableAiAgent } = require('./config')
 const { triggerWebhook, waitForNestedObject, checkIfEventisEnabled, sendMessageSeenStatus } = require('./utils')
 const { logger } = require('./logger')
 const { initWebSocketServer, terminateWebSocketServer, triggerWebSocket } = require('./websocket')
+const { getAIResponse } = require('../aiAgent/agent')
 
 // Function to validate if the session is ready
 const validateSession = async (sessionId) => {
@@ -310,30 +311,48 @@ const initializeEvents = (client, sessionId) => {
         logger.info({ message: message.body }, 'Gonna Reply');
         logger.info({ message: message.fromMe }, 'Checking if from me');
         logger.info({ message: message.type }, 'Checking type');
-        // Auto-reply logic STARTS HERE
-        if (enableAutoReply && message.fromMe === false) {
+        // Primary condition: not from self
+        if (message.fromMe === false) {
           const chatId = message.from;
-          logger.info({ sessionId, chatId, incomingMessageBody: message.body }, 'Incoming message for potential auto-reply');
+          logger.info({ sessionId, chatId, incomingMessageBody: message.body }, 'Incoming message processing started.');
 
-          // Avoid replying to group notification messages or user status messages
-          // message.author is undefined for regular messages in a group chat from other participants.
-          // It is defined for your own messages in a group or for some group event notifications.
-          // message.type distinguishes between 'chat', 'group_notification', 'e2e_notification', 'protocol', 'call_log', 'status_broadcast'
+          // Skip group/e2e notifications or status broadcasts for any kind of reply
           if ((message.isGroup && (message.type === 'group_notification' || message.type === 'e2e_notification')) || message.type === 'status_broadcast') {
-            logger.info({ sessionId, chatId, messageType: message.type, isGroup: message.isGroup }, 'Skipping auto-reply for group/e2e notification or status broadcast.');
-            // return; // Do not return here if there's more message processing logic below for webhooks/websockets for these types.
+            logger.info({ sessionId, chatId, messageType: message.type, isGroup: message.isGroup }, 'Skipping reply for group/e2e notification or status broadcast.');
           } else {
-            // Only attempt to reply if it's not a skipped type
-            try {
-              logger.info({ sessionId, chatId, autoReplyMessageContent: autoReplyMessage, originalMsgId: message.id._serialized }, 'Attempting auto-reply');
-              await client.sendMessage(chatId, autoReplyMessage, { quotedMessageId: message.id._serialized });
-              logger.info({ sessionId, chatId }, 'Auto-reply sent successfully');
-            } catch (error) {
-              logger.error({ sessionId, chatId, err: error.message }, 'Failed to send auto-reply');
+            // Message is suitable for a reply, now check AI or standard auto-reply
+
+            if (enableAiAgent) {
+              logger.info({ sessionId, chatId }, 'AI Agent is enabled. Processing message with AI.');
+              try {
+                const aiResponseMessage = await getAIResponse(message.body);
+                if (aiResponseMessage) {
+                  logger.info({ sessionId, chatId, aiResponse: aiResponseMessage }, 'AI Agent provided a response. Attempting to send.');
+                  await client.sendMessage(chatId, aiResponseMessage, { quotedMessageId: message.id._serialized });
+                  logger.info({ sessionId, chatId }, 'AI response sent successfully.');
+                } else {
+                  logger.info({ sessionId, chatId }, 'AI Agent did not provide a specific response.');
+                  // Optional: Fallback to standard auto-reply if AI gives no specific response?
+                  // For now, if AI is enabled, it handles it or does nothing.
+                }
+              } catch (aiError) {
+                logger.error({ sessionId, chatId, err: aiError.message }, 'Error processing message with AI Agent.');
+                // Optional: Fallback to standard auto-reply on AI error?
+              }
+            } else if (enableAutoReply) {
+              // AI Agent is not enabled, fall back to standard auto-reply logic
+              logger.info({ sessionId, chatId }, 'AI Agent is disabled. Checking standard auto-reply.');
+              // (This is the existing auto-reply logic)
+              logger.info({ sessionId, chatId, autoReplyMessageContent: autoReplyMessage, originalMsgId: message.id._serialized }, 'Attempting standard auto-reply');
+              try {
+                await client.sendMessage(chatId, autoReplyMessage, { quotedMessageId: message.id._serialized });
+                logger.info({ sessionId, chatId }, 'Standard auto-reply sent successfully');
+              } catch (error) {
+                logger.error({ sessionId, chatId, err: error.message }, 'Failed to send standard auto-reply');
+              }
             }
           }
         }
-        // Auto-reply logic ENDS HERE
       })
     })
 

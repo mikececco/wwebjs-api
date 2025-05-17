@@ -28,6 +28,8 @@ services:
       # Explicitly add new auto-reply ENV vars here as well, though .env takes precedence
       - ENABLE_AUTO_REPLY=${ENABLE_AUTO_REPLY:-false} # Defaults to false if not in .env
       - AUTO_REPLY_MESSAGE=${AUTO_REPLY_MESSAGE:-Default auto reply if not set in .env}
+      - ENABLE_AI_AGENT=${ENABLE_AI_AGENT:-true} # Defaults to true if not in .env
+      - OPENAI_API_KEY=${OPENAI_API_KEY} # Defaults to true if not in .env
     volumes:
       - ./sessions:/usr/src/app/sessions # Mount the local ./sessions/ folder to the container's /usr/src/app/sessions folder
       # - ./:/usr/src/app # Mount the local source code for development
