@@ -2,7 +2,7 @@ const { Client, LocalAuth } = require('whatsapp-web.js')
 const fs = require('fs')
 const path = require('path')
 const sessions = new Map()
-const { baseWebhookURL, sessionFolderPath, maxAttachmentSize, setMessagesAsSeen, webVersion, webVersionCacheType, recoverSessions, chromeBin, headless, releaseBrowserLock } = require('./config')
+const { baseWebhookURL, sessionFolderPath, maxAttachmentSize, setMessagesAsSeen, webVersion, webVersionCacheType, recoverSessions, chromeBin, headless, releaseBrowserLock, enableAutoReply, autoReplyMessage } = require('./config')
 const { triggerWebhook, waitForNestedObject, checkIfEventisEnabled, sendMessageSeenStatus } = require('./utils')
 const { logger } = require('./logger')
 const { initWebSocketServer, terminateWebSocketServer, triggerWebSocket } = require('./websocket')
@@ -217,6 +217,9 @@ const initializeEvents = (client, sessionId) => {
       client.on('disconnected', (reason) => {
         triggerWebhook(sessionWebhook, sessionId, 'disconnected', { reason })
         triggerWebSocket(sessionId, 'disconnected', { reason })
+        // remove session from sessions map
+        sessions.delete(sessionId)
+        terminateWebSocketServer(sessionId)
       })
     })
 
@@ -292,9 +295,40 @@ const initializeEvents = (client, sessionId) => {
             })
           })
         }
+        logger.info('Message received');
+        logger.info('In Message');
         if (setMessagesAsSeen) {
           sendMessageSeenStatus(message)
         }
+
+        logger.info('Message received');
+        logger.info({ message: message.body }, 'Gonna Reply');
+        logger.info({ message: message.fromMe }, 'Checking if from me');
+        logger.info({ message: message.type }, 'Checking type');
+        // Auto-reply logic STARTS HERE
+        if (enableAutoReply && message.fromMe === false) {
+          const chatId = message.from;
+          logger.info({ sessionId, chatId, incomingMessageBody: message.body }, 'Incoming message for potential auto-reply');
+
+          // Avoid replying to group notification messages or user status messages
+          // message.author is undefined for regular messages in a group chat from other participants.
+          // It is defined for your own messages in a group or for some group event notifications.
+          // message.type distinguishes between 'chat', 'group_notification', 'e2e_notification', 'protocol', 'call_log', 'status_broadcast'
+          if ((message.isGroup && (message.type === 'group_notification' || message.type === 'e2e_notification')) || message.type === 'status_broadcast') {
+            logger.info({ sessionId, chatId, messageType: message.type, isGroup: message.isGroup }, 'Skipping auto-reply for group/e2e notification or status broadcast.');
+            // return; // Do not return here if there's more message processing logic below for webhooks/websockets for these types.
+          } else {
+            // Only attempt to reply if it's not a skipped type
+            try {
+              logger.info({ sessionId, chatId, autoReplyMessageContent: autoReplyMessage, originalMsgId: message.id._serialized }, 'Attempting auto-reply');
+              await client.sendMessage(chatId, autoReplyMessage, { quotedMessageId: message.id._serialized });
+              logger.info({ sessionId, chatId }, 'Auto-reply sent successfully');
+            } catch (error) {
+              logger.error({ sessionId, chatId, err: error.message }, 'Failed to send auto-reply');
+            }
+          }
+        }
+        // Auto-reply logic ENDS HERE
       })
     })
 
@@ -303,6 +337,8 @@ const initializeEvents = (client, sessionId) => {
       client.on('message_ack', async (message, ack) => {
         triggerWebhook(sessionWebhook, sessionId, 'message_ack', { message, ack })
         triggerWebSocket(sessionId, 'message_ack', { message, ack })
+        logger.info('Message received');
+        logger.info('In Message Ack');
         if (setMessagesAsSeen) {
           sendMessageSeenStatus(message)
         }
@@ -314,6 +350,8 @@ const initializeEvents = (client, sessionId) => {
       client.on('message_create', async (message) => {
         triggerWebhook(sessionWebhook, sessionId, 'message_create', { message })
         triggerWebSocket(sessionId, 'message_create', { message })
+        logger.info('Message received');
+        logger.info('In Message Create');
         if (setMessagesAsSeen) {
           sendMessageSeenStatus(message)
         }

@@ -21,6 +21,8 @@ const releaseBrowserLock = process.env.RELEASE_BROWSER_LOCK ? (process.env.RELEA
 const logLevel = process.env.LOG_LEVEL || 'info'
 const enableWebHook = process.env.ENABLE_WEBHOOK ? (process.env.ENABLE_WEBHOOK).toLowerCase() === 'true' : true
 const enableWebSocket = process.env.ENABLE_WEBSOCKET ? (process.env.ENABLE_WEBSOCKET).toLowerCase() === 'true' : false
+const enableAutoReply = (process.env.ENABLE_AUTO_REPLY || '').toLowerCase() === 'true'
+const autoReplyMessage = process.env.AUTO_REPLY_MESSAGE || 'Thank you for your message! I am currently unavailable but will get back to you soon.'
 
 module.exports = {
   sessionFolderPath,
@@ -41,5 +43,7 @@ module.exports = {
   releaseBrowserLock,
   logLevel,
   enableWebHook,
-  enableWebSocket
+  enableWebSocket,
+  enableAutoReply,
+  autoReplyMessage
 }
