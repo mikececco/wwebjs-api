@@ -8,8 +8,6 @@ services:
     restart: always
     ports:
       - "3000:3000"
-    env_file:
-      - .env # Load variables from .env file
     environment:
       # Environment variables from .env will override these if they conflict,
       # but it's good to list essential ones or defaults if .env is missing for some reason.
@@ -32,4 +30,4 @@ services:
       - AUTO_REPLY_MESSAGE=${AUTO_REPLY_MESSAGE:-Default auto reply if not set in .env}
     volumes:
       - ./sessions:/usr/src/app/sessions # Mount the local ./sessions/ folder to the container's /usr/src/app/sessions folder
-      - ./:/usr/src/app # Mount the local source code for development
+      # - ./:/usr/src/app # Mount the local source code for development
