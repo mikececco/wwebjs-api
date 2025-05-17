@@ -99,8 +99,13 @@ const setupSession = async (sessionId) => {
     const clientOptions = {
       puppeteer: {
         executablePath: chromeBin,
-        headless,
-        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu', '--disable-dev-shm-usage']
+        headless: headless,
+        args: [
+          '--no-sandbox',
+          //'--disable-setuid-sandbox', // Temporarily commenting out
+          //'--disable-gpu', // Temporarily commenting out, though often needed
+          //'--disable-dev-shm-usage' // Temporarily commenting out
+        ]
       },
       authStrategy: localAuth
     }
