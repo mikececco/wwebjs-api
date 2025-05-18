@@ -328,16 +328,29 @@ const initializeEvents = (client, sessionId) => {
                 // Dynamically import the ESM agent module
                 const { invokeAgent } = await import('./aiAgent/autonomous-agent.mjs');
 
-                const agentResponse = await invokeAgent(
-                  { messages: [{ role: 'user', content: message.body }] }
-                  // We are not passing invokeConfig from here for now
-                );
+                const agentInvokeInput = { messages: [{ role: 'user', content: message.body }] };
+                const agentInvokeConfig = { configurable: { thread_id: chatId } }; // Use chatId as thread_id
+
+                logger.info({ sessionId, chatId, agentInvokeInput, agentInvokeConfig }, 'Invoking autonomous agent.');
+
+                const agentResponse = await invokeAgent(agentInvokeInput, agentInvokeConfig);
                 let aiResponseMessage = null;
 
-                if (agentResponse && agentResponse.messages && Array.isArray(agentResponse.messages)) {
-                  const assistantMessage = agentResponse.messages.find(m => m.role === 'assistant');
-                  if (assistantMessage && assistantMessage.content) {
-                    aiResponseMessage = assistantMessage.content;
+                // Parse the response (assuming invokeAgent returns the simplified structure directly)
+                if (agentResponse && agentResponse.messages && agentResponse.messages.length > 0) {
+                  const lastMessage = agentResponse.messages[agentResponse.messages.length - 1];
+                  // Check if the last message is from the AI and has content
+                  // For AIMessage instances returned by Langchain createReactAgent with MemorySaver,
+                  // the type might be identified via _isAIMessage or instanceof if the class is available
+                  // For now, we rely on the structure returned by our invokeAgent (which should be direct .content)
+                  // However, the error message indicates the raw response has `content` directly.
+                  // Let's assume the last message is the AI's reply for now if it has content.
+                  if (lastMessage && typeof lastMessage.content === 'string' && lastMessage.content.trim() !== '') {
+                     // A more robust check might be: lastMessage instanceof AIMessage (if AIMessage class is imported and used)
+                     // or checking a 'type' or 'role' field if our invokeAgent shapes it that way.
+                     // Based on the error log, the error message itself has a direct `content` field.
+                     // And successful runs from test script (after MemorySaver was added) also have direct .content on last AIMessage.
+                    aiResponseMessage = lastMessage.content;
                   }
                 }
 
