@@ -4,6 +4,13 @@ import { ChatOpenAI } from "@langchain/openai";
 import { tool } from "@langchain/core/tools";
 import { MemorySaver } from "@langchain/langgraph";
 import { z } from "zod";
+import { TavilySearch } from "@langchain/tavily";
+
+const searchTool = new TavilySearch({
+  maxResults: 5,
+  topic: "general",
+});
+
 // import { openaiApiKey } from '../config.js'; // Will be dynamically imported
 
 let agent;
@@ -48,7 +55,7 @@ async function initializeAgent() {
 
     agent = createReactAgent({
       llm: model,
-      tools: [search],
+      tools: [searchTool],
       checkpointer: agentCheckpointer, // Corrected property name from checkpointSaver to checkpointer
     });
     console.log("[Autonomous Agent] Initialized successfully.");
