@@ -8,7 +8,7 @@ async function runTest() {
   const { AIMessage } = await import('@langchain/core/messages'); // For instanceof check
   // HumanMessage is not strictly needed if constructing inputs as plain objects
   // const { HumanMessage } = await import('@langchain/core/messages'); 
-  const { invokeAgent } = await import('./src/aiAgent/autonomous-agent.js');
+  const { invokeAgent } = await import('./src/aiAgent/autonomous-agent.mjs'); // Updated to .mjs
 
   console.log("Testing Autonomous Agent...");
 

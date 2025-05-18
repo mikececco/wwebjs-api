@@ -326,7 +326,7 @@ const initializeEvents = (client, sessionId) => {
               logger.info({ sessionId, chatId }, 'Autonomous AI Agent is enabled. Processing message.');
               try {
                 // Dynamically import the ESM agent module
-                const { invokeAgent } = await import('./aiAgent/autonomous-agent.js');
+                const { invokeAgent } = await import('./aiAgent/autonomous-agent.mjs');
 
                 const agentResponse = await invokeAgent(
                   { messages: [{ role: 'user', content: message.body }] }
