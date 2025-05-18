@@ -25,6 +25,7 @@ const enableAutoReply = (process.env.ENABLE_AUTO_REPLY || '').toLowerCase() === 
 const autoReplyMessage = process.env.AUTO_REPLY_MESSAGE || 'Thank you for your message! I am currently unavailable but will get back to you soon.'
 const enableAiAgent = (process.env.ENABLE_AI_AGENT || '').toLowerCase() === 'true'
 const openaiApiKey = process.env.OPENAI_API_KEY || null
+const tavilyApiKey = process.env.TAVILY_API_KEY || null
 
 module.exports = {
   sessionFolderPath,
@@ -49,5 +50,6 @@ module.exports = {
   enableAutoReply,
   autoReplyMessage,
   enableAiAgent,
-  openaiApiKey
+  openaiApiKey,
+  tavilyApiKey
 }

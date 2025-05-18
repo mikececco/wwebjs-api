@@ -6,16 +6,11 @@ import { MemorySaver } from "@langchain/langgraph";
 import { z } from "zod";
 import { TavilySearch } from "@langchain/tavily";
 
-const searchTool = new TavilySearch({
-  maxResults: 5,
-  topic: "general",
-});
-
-// import { openaiApiKey } from '../config.js'; // Will be dynamically imported
-
 let agent;
 let model;
 let openaiApiKey;
+let tavilyApiKey;
+let searchTool;
 
 async function initializeAgent() {
   if (agent) return; // Already initialized
@@ -23,9 +18,11 @@ async function initializeAgent() {
   try {
     const configModule = await import('../config.js');
     openaiApiKey = configModule.openaiApiKey;
+    tavilyApiKey = configModule.tavilyApiKey;
   } catch (e) {
     console.error("[Autonomous Agent] Failed to load config.js:", e);
     openaiApiKey = null;
+    tavilyApiKey = null;
   }
 
   if (openaiApiKey) {
@@ -34,29 +31,21 @@ async function initializeAgent() {
       model: "gpt-4o-mini"
     });
 
-    const search = tool(async ({ query }) => {
-      console.log(`[Autonomous Agent] Searching for: ${query}`);
-      if (query.toLowerCase().includes("sf") || query.toLowerCase().includes("san francisco")) {
-        return "It's 60 degrees and foggy in San Francisco.";
-      }
-      if (query.toLowerCase().includes("weather")) {
-        return "The weather is generally pleasant, but it varies by location.";
-      }
-      return "Sorry, I couldn't find specific information for that query with my current tools.";
-    }, {
-      name: "search",
-      description: "Call to surf the web or get information about various topics including weather.",
-      schema: z.object({
-        query: z.string().describe("The query to use in your search."),
-      }),
-    });
+    const tavilyToolOptions = { maxResults: 5, topic: "general" };
+    if (tavilyApiKey) {
+      tavilyToolOptions.apiKey = tavilyApiKey;
+      console.log("[Autonomous Agent] Tavily API Key loaded and will be used.");
+    } else {
+      console.warn("[Autonomous Agent] Tavily API Key not found. TavilySearch might not function correctly or use a default/environment key if set elsewhere.");
+    }
+    searchTool = new TavilySearch(tavilyToolOptions);
 
     const agentCheckpointer = new MemorySaver();
 
     agent = createReactAgent({
       llm: model,
       tools: [searchTool],
-      checkpointer: agentCheckpointer, // Corrected property name from checkpointSaver to checkpointer
+      checkpointer: agentCheckpointer,
     });
     console.log("[Autonomous Agent] Initialized successfully.");
   } else {
@@ -96,7 +85,6 @@ export async function invokeAgent(invokeInput, invokeConfig) {
   
   try {
     const result = await agent.invoke(invokeInput, invokeConfig);
-    // Log the entire messages array or the full result for better inspection
     console.log("[Autonomous Agent] Agent invocation successful. Raw Result Messages:", JSON.stringify(result.messages, null, 2));
     return result;
   } catch (error) {
