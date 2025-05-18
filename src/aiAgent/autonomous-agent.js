@@ -3,49 +3,58 @@ import { createReactAgent } from "@langchain/langgraph/prebuilt";
 import { ChatOpenAI } from "@langchain/openai";
 import { tool } from "@langchain/core/tools";
 import { MemorySaver } from "@langchain/langgraph";
-
-
 import { z } from "zod";
-import { openaiApiKey } from '../config.js'; // Assuming config.js is CommonJS and .js can be resolved
+// import { openaiApiKey } from '../config.js'; // Will be dynamically imported
 
 let agent;
 let model;
+let openaiApiKey;
 
-if (openaiApiKey) {
-  model = new ChatOpenAI({
-    apiKey: openaiApiKey,
-    model: "gpt-4o-mini" // or your preferred model
-  });
+async function initializeAgent() {
+  if (agent) return; // Already initialized
 
-  const search = tool(async ({ query }) => {
-    // Simple placeholder for search functionality
-    // In a real scenario, you'd integrate a proper search tool (e.g., TavilySearchResults)
-    console.log(`[Autonomous Agent] Searching for: ${query}`);
-    if (query.toLowerCase().includes("sf") || query.toLowerCase().includes("san francisco")) {
-      return "It's 60 degrees and foggy in San Francisco.";
-    }
-    if (query.toLowerCase().includes("weather")) {
+  try {
+    const configModule = await import('../config.js');
+    openaiApiKey = configModule.openaiApiKey;
+  } catch (e) {
+    console.error("[Autonomous Agent] Failed to load config.js:", e);
+    openaiApiKey = null;
+  }
+
+  if (openaiApiKey) {
+    model = new ChatOpenAI({
+      apiKey: openaiApiKey,
+      model: "gpt-4o-mini"
+    });
+
+    const search = tool(async ({ query }) => {
+      console.log(`[Autonomous Agent] Searching for: ${query}`);
+      if (query.toLowerCase().includes("sf") || query.toLowerCase().includes("san francisco")) {
+        return "It's 60 degrees and foggy in San Francisco.";
+      }
+      if (query.toLowerCase().includes("weather")) {
         return "The weather is generally pleasant, but it varies by location.";
-    }
-    return "Sorry, I couldn't find specific information for that query with my current tools.";
-  }, {
-    name: "search",
-    description: "Call to surf the web or get information about various topics including weather.",
-    schema: z.object({
-      query: z.string().describe("The query to use in your search."),
-    }),
-  });
+      }
+      return "Sorry, I couldn't find specific information for that query with my current tools.";
+    }, {
+      name: "search",
+      description: "Call to surf the web or get information about various topics including weather.",
+      schema: z.object({
+        query: z.string().describe("The query to use in your search."),
+      }),
+    });
 
-  const agentCheckpointer = new MemorySaver();
+    const agentCheckpointer = new MemorySaver();
 
-
-  agent = createReactAgent({
-    llm: model,
-    tools: [search],
-    checkpointer: agentCheckpointer,
-  });
-} else {
-  console.warn('[Autonomous Agent] OpenAI API Key not found. Autonomous agent will not be fully functional.');
+    agent = createReactAgent({
+      llm: model,
+      tools: [search],
+      checkpointer: agentCheckpointer, // Corrected property name from checkpointSaver to checkpointer
+    });
+    console.log("[Autonomous Agent] Initialized successfully.");
+  } else {
+    console.warn('[Autonomous Agent] OpenAI API Key not found from config. Autonomous agent will not be fully functional.');
+  }
 }
 
 /**
@@ -55,36 +64,39 @@ if (openaiApiKey) {
  * @returns {Promise<object|null>} The agent's response object, or null if the agent is not initialized or an error occurs.
  */
 export async function invokeAgent(invokeInput, invokeConfig) {
+  await initializeAgent(); // Ensure agent is initialized
+
   if (!agent) {
     console.error('[Autonomous Agent] Agent not initialized due to missing API key or other setup issues.');
-    // Return a structure that calling code expecting direct .content might handle
     return {
       messages: [{
-        // type: "AIMessage", // Or role: "assistant" if that's what test/sessions expect
         content: "My autonomous capabilities are not available right now. Please check server configuration.",
-        // id: "error-" + Date.now() // Ensure this matches what consuming code might expect
+      }]
+    };
+  }
+
+  if (!invokeConfig || !invokeConfig.configurable || !invokeConfig.configurable.thread_id) {
+    console.error('[Autonomous Agent] Error: invokeConfig must include { configurable: { thread_id: "your_thread_id" } } when using MemorySaver.');
+    return {
+      messages: [{
+        content: "Error: Conversation thread_id is missing for the agent.",
       }]
     };
   }
 
   console.log(`[Autonomous Agent] Invoking agent with input:`, JSON.stringify(invokeInput));
-  if (invokeConfig) {
-    console.log(`[Autonomous Agent] Using invoke config:`, JSON.stringify(invokeConfig));
-  }
+  console.log(`[Autonomous Agent] Using invoke config:`, JSON.stringify(invokeConfig));
+  
   try {
     const result = await agent.invoke(invokeInput, invokeConfig);
-    console.log("[Autonomous Agent] Agent invocation successful. Raw Result:", JSON.stringify(result.messages[result.messages.length - 1].content, null, 2));
-    
-    // Now returning the raw result from agent.invoke()
-    return result; 
-
+    // Log the entire messages array or the full result for better inspection
+    console.log("[Autonomous Agent] Agent invocation successful. Raw Result Messages:", JSON.stringify(result.messages, null, 2));
+    return result;
   } catch (error) {
     console.error("[Autonomous Agent] Error invoking agent:", error);
     return {
       messages: [{
-        // type: "AIMessage",
         content: "Sorry, I encountered an issue while processing your request with my autonomous capabilities.",
-        // id: "error-" + Date.now()
       }]
     };
   }
