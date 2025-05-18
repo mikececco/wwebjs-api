@@ -6,7 +6,7 @@ const { baseWebhookURL, sessionFolderPath, maxAttachmentSize, setMessagesAsSeen,
 const { triggerWebhook, waitForNestedObject, checkIfEventisEnabled, sendMessageSeenStatus } = require('./utils')
 const { logger } = require('./logger')
 const { initWebSocketServer, terminateWebSocketServer, triggerWebSocket } = require('./websocket')
-const { getAIResponse } = require('./aiAgent/agent')
+// const { invokeAgent } = require('./aiAgent/autonomous-agent.js') // Old require
 
 // Function to validate if the session is ready
 const validateSession = async (sessionId) => {
@@ -323,21 +323,38 @@ const initializeEvents = (client, sessionId) => {
             // Message is suitable for a reply, now check AI or standard auto-reply
 
             if (enableAiAgent) {
-              logger.info({ sessionId, chatId }, 'AI Agent is enabled. Processing message with AI.');
+              logger.info({ sessionId, chatId }, 'Autonomous AI Agent is enabled. Processing message.');
               try {
-                const aiResponseMessage = await getAIResponse(message.body);
+                // Dynamically import the ESM agent module
+                const { invokeAgent } = await import('./aiAgent/autonomous-agent.js');
+
+                const agentResponse = await invokeAgent(
+                  { messages: [{ role: 'user', content: message.body }] }
+                  // We are not passing invokeConfig from here for now
+                );
+                let aiResponseMessage = null;
+
+                if (agentResponse && agentResponse.messages && Array.isArray(agentResponse.messages)) {
+                  const assistantMessage = agentResponse.messages.find(m => m.role === 'assistant');
+                  if (assistantMessage && assistantMessage.content) {
+                    aiResponseMessage = assistantMessage.content;
+                  }
+                }
+
                 if (aiResponseMessage) {
-                  logger.info({ sessionId, chatId, aiResponse: aiResponseMessage }, 'AI Agent provided a response. Attempting to send.');
+                  logger.info({ sessionId, chatId, aiResponse: aiResponseMessage }, 'Autonomous AI Agent provided a response. Attempting to send.');
                   await client.sendMessage(chatId, aiResponseMessage, { quotedMessageId: message.id._serialized });
-                  logger.info({ sessionId, chatId }, 'AI response sent successfully.');
+                  logger.info({ sessionId, chatId }, 'Autonomous AI response sent successfully.');
                 } else {
-                  logger.info({ sessionId, chatId }, 'AI Agent did not provide a specific response.');
-                  // Optional: Fallback to standard auto-reply if AI gives no specific response?
-                  // For now, if AI is enabled, it handles it or does nothing.
+                  logger.info({ sessionId, chatId, agentFullResponse: JSON.stringify(agentResponse) }, 'Autonomous AI Agent did not provide a usable message content.');
+                  // Optionally, send a generic "I couldn't process that" or fallback to standard auto-reply.
+                  // For now, if AI is enabled and doesn't provide a clear response, it does nothing further.
                 }
               } catch (aiError) {
-                logger.error({ sessionId, chatId, err: aiError.message }, 'Error processing message with AI Agent.');
+                logger.error({ sessionId, chatId, err: aiError.message, stack: aiError.stack }, 'Error processing message with Autonomous AI Agent.');
                 // Optional: Fallback to standard auto-reply on AI error?
+                // You might want to send a generic error message to the user.
+                // await client.sendMessage(chatId, "Sorry, I encountered an error trying to process your request with my advanced AI.", { quotedMessageId: message.id._serialized });
               }
             } else if (enableAutoReply) {
               // AI Agent is not enabled, fall back to standard auto-reply logic
