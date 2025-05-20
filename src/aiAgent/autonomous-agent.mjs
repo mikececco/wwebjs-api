@@ -4,13 +4,20 @@ import { ChatOpenAI } from "@langchain/openai";
 import { tool } from "@langchain/core/tools";
 import { MemorySaver } from "@langchain/langgraph";
 import { z } from "zod";
-import { TavilySearch } from "@langchain/tavily";
+import {
+  // GmailCreateDraft,
+  // GmailGetMessage,
+  // GmailGetThread,
+  // GmailSearch,
+  GmailSendMessage,
+} from "@langchain/community/tools/gmail";
+// import { TavilySearch } from "@langchain/tavily";
 
 let agent;
 let model;
 let openaiApiKey;
-let tavilyApiKey;
-let searchTool;
+// let tavilyApiKey;
+let gmailSendEmailTool;
 
 async function initializeAgent() {
   if (agent) return; // Already initialized
@@ -18,11 +25,11 @@ async function initializeAgent() {
   try {
     const configModule = await import('../config.js');
     openaiApiKey = configModule.openaiApiKey;
-    tavilyApiKey = configModule.tavilyApiKey;
+    // tavilyApiKey = configModule.tavilyApiKey;
   } catch (e) {
     console.error("[Autonomous Agent] Failed to load config.js:", e);
     openaiApiKey = null;
-    tavilyApiKey = null;
+    // tavilyApiKey = null;
   }
 
   if (openaiApiKey) {
@@ -31,14 +38,14 @@ async function initializeAgent() {
       model: "gpt-4o-mini"
     });
 
-    const tavilyToolOptions = { maxResults: 5, topic: "general" };
-    if (tavilyApiKey) {
-      tavilyToolOptions.apiKey = tavilyApiKey;
-      console.log("[Autonomous Agent] Tavily API Key loaded and will be used.");
-    } else {
-      console.warn("[Autonomous Agent] Tavily API Key not found. TavilySearch might not function correctly or use a default/environment key if set elsewhere.");
-    }
-    searchTool = new TavilySearch(tavilyToolOptions);
+    // const tavilyToolOptions = { maxResults: 5, topic: "general" };
+    // if (tavilyApiKey) {
+    //   tavilyToolOptions.apiKey = tavilyApiKey;
+    //   console.log("[Autonomous Agent] Tavily API Key loaded and will be used.");
+    // } else {
+    //   console.warn("[Autonomous Agent] Tavily API Key not found. TavilySearch might not function correctly or use a default/environment key if set elsewhere.");
+    // }
+    // searchTool = new TavilySearch(tavilyToolOptions);
 
     const agentCheckpointer = new MemorySaver();
 
