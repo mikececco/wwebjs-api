@@ -99,13 +99,40 @@ const setupSession = async (sessionId) => {
 
     const clientOptions = {
       puppeteer: {
-        executablePath: chromeBin,
+        executablePath: chromeBin || process.env.CHROME_BIN || '/usr/bin/chromium' || '/usr/bin/chromium-browser',
         headless: headless,
         args: [
           '--no-sandbox',
-          //'--disable-setuid-sandbox', // Temporarily commenting out
-          //'--disable-gpu', // Temporarily commenting out, though often needed
-          //'--disable-dev-shm-usage' // Temporarily commenting out
+          '--disable-setuid-sandbox',
+          '--disable-gpu',
+          '--disable-dev-shm-usage',
+          '--disable-accelerated-2d-canvas',
+          '--no-zygote',
+          '--single-process',
+          '--disable-software-rasterizer',
+          '--disable-background-timer-throttling',
+          '--disable-backgrounding-occluded-windows',
+          '--disable-breakpad',
+          '--disable-client-side-phishing-detection',
+          '--disable-component-extensions-with-background-pages',
+          '--disable-default-apps',
+          '--disable-dev-shm-usage',
+          '--disable-extensions',
+          '--disable-features=site-per-process',
+          '--disable-hang-monitor',
+          '--disable-ipc-flooding-protection',
+          '--disable-popup-blocking',
+          '--disable-prompt-on-repost',
+          '--disable-renderer-backgrounding',
+          '--disable-sync',
+          '--force-color-profile=srgb',
+          '--metrics-recording-only',
+          '--mute-audio',
+          '--no-first-run',
+          '--safebrowsing-disable-auto-update',
+          '--enable-automation',
+          '--password-store=basic',
+          '--use-mock-keychain',
         ]
       },
       authStrategy: localAuth
